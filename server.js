@@ -1,91 +1,95 @@
 import express from "express";
 
 const app = express();
-const PORT = 8000;
-const HOST = 'localhost'
+app.use(express.json());
 
-const products = [
-    {
-        id: 1,
-        name: "Laptop",
-        price: 1200,
-        category: "electronics"
-    },
-    {
-        id: 2,
-        name: "Phone",
-        price: 800,
-        category: "electronics"
-    },
-    {
-        id: 3,
-        name: "Chair",
-        price: 150,
-        category: "furniture"
-    },
-    {
-        id: 4,
-        name: "Table",
-        price: 300,
-        category: "furniture"
-    },
-    {
-        id: 5,
-        name: "Headphones",
-        price: 100,
-        category: "electronics"
-    }
+const HOST = "localhost";
+const PORT = 8000;
+
+let products = [
+  {
+    id: 1,
+    name: "Laptop",
+    price: 1500,
+    category: "Electronics",
+    image: "",
+  },
+  {
+    id: 2,
+    name: "bed",
+    price: 10000,
+    category: "furniture",
+    image: "",
+  },
 ];
 
+async function addProduct(product, fail = false) {
+  return new Promise((resolve, reject) => {
+    if (fail) {
+      reject(new Error("Failed to save product"));
+      return;
+    }
+
+    products = [...products, product];
+
+    resolve(product);
+  });
+}
+
 app.get("/products", (req, res) => {
-    const { category, take } = req.query;
-
-    let product = [...products];
-
-    if (category) {
-        product = product.filter(product => product.category === category);
-    }
-
-    if (!take) {
-        return res.status(200).json(product);
-    }
-
-    const numTake = Number(take);
-
-    if (!Number.isInteger(numTake)) {
-        return res.status(400).json({
-            message: "The take must be an integer"
-        });
-    }
-
-    product = product.slice(0, numTake);
-
-    return res.status(200).json(product);
+  res.status(200).json(products);
 });
 
+app.post("/products", async (req, res) => {
+  const { name, price, category, image = "" } = req.body;
 
-app.get("/products/:id", (req, res) => {
-    const id = Number(req.params.id);
+  if (
+    typeof name !== "string" ||
+    !name.trim() ||
+    typeof price !== "number" ||
+    price <= 0 ||
+    typeof category !== "string" ||
+    !category.trim()
+  ) {
+    return res.status(422).json({
+      message: "Invalid product data",
+    });
+  }
 
-    if (!Number.isInteger(id)) {
-        return res.status(400).json({
-            message: "Id must be an integer"
-        });
-    }
+  const productExists = products.some(
+    (product) => product.name.toLowerCase() === name.trim().toLowerCase()
+  );
 
-    const product = products.find(product => product.id === id);
+  if (productExists) {
+    return res.status(409).json({
+      message: "This name is already taken",
+    });
+  }
 
-    if (!product) {
-        return res.status(404).json({
-            message: "Product not found"
-        });
-    }
+  const newProduct = {
+    id: products.length + 1,
+    name: name.trim(),
+    price: price,
+    category: category.trim(),
+    image: image,
+  };
 
-    return res.status(200).json(product);
+  try {
+    const result = await addProduct(
+      newProduct,
+      req.query.fail === "true"
+    );
+
+    res.status(201).json(result);
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
 });
-
 
 app.listen(PORT, HOST, () => {
-    console.log(`Server started: http://${HOST}:${PORT}`);
+  console.log(`Server is running on http://${HOST}:${PORT}`);
 });
-
